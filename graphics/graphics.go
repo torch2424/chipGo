@@ -17,13 +17,16 @@ import (
 const scale int = 10
 
 //Our colors for the display
-var ColorBg = sf.Color{0, 0, 0, 0}
+var ColorBg = sf.Color{25, 25, 25, 255}
 
-var ColorSprite = sf.Color{255, 255, 255, 255}
+var ColorSprite = sf.Color{242, 242, 242, 255}
 
 //Chip8 display size
 const Width int = 64
 const Height int = 32
+
+//Debug mode
+var debugMode bool
 
 type Video struct {
 
@@ -38,12 +41,16 @@ type Video struct {
 }
 
 //Constructor for video
-func NewVideo() Video{
+func NewVideo(debug bool) Video {
 
+	//Create our video
 	video := Video{Window: GetWindow(), Target: GetTarget()}
 
 	//Initialize our slice
 	video.pixels = make([]*Pixel, 0)
+
+	//Debug mode
+	debugMode = debug
 
 	return video
 }
@@ -57,7 +64,7 @@ func PollEvents() {
 func GetWindow() *glfw.Window {
 
 	//Inform user of graphics initialization
-	print("Opening Window...\n")
+	print("\nOpening Window...\n")
 
 	//Initialize graphics library and window
 	glfw.Init()
@@ -85,7 +92,13 @@ func IsOpen(video Video) bool {
 }
 
 //Function to draw sprites to the window
+//Also, display how game should look in terminal
 func Render(video Video, display [Width][Height]uint8) {
+
+	//If debug mode, title video state
+	if debugMode {
+		print("Display State:\n\n")
+	}
 
 	//Loop through and create our sprites
 	for i := 0; i < Height; i++ {
@@ -94,20 +107,21 @@ func Render(video Video, display [Width][Height]uint8) {
 			//X Corrdinate
 
 			if display[j][i] == 1 {
-				print(1)
+
+				if debugMode {
+					print(1)
+				}
 				//Create a sprite at the location
 				video.pixels = append(video.pixels, NewPixel(float32(j * scale), float32(i * scale), float32(scale), float32(scale)))
-			} else {
+			} else if debugMode {
 				print(" ")
 			}
 
-			if j >= Width - 1 {
+			if debugMode && j >= Width - 1 {
 				print("\n")
 			}
 		}
 	}
-
-	print("\n\n\n\n")
 
 	//Render all of the pixels
 	//Clear the screen

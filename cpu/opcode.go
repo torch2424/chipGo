@@ -61,6 +61,9 @@ func DecodeOpcode(cpu Cpu) Cpu {
     case 0x1000:
         //Jump to the adress at the last 3 nibbles (NNN)
         cpu.programCounter = opCode & 0x0FFF
+
+        //Skip program counter since we jumped
+        cpu.skipProgramCounter = true
         break
     case 0x2000:
         //Call subroutine in the last 3 nibbles (NNN)
@@ -71,6 +74,9 @@ func DecodeOpcode(cpu Cpu) Cpu {
         //Place the current operation on the stack
         cpu.stack[cpu.stackPointer] = cpu.programCounter
         cpu.programCounter = opCode & 0x0FFF
+
+        //Skip program counter since we jumped
+        cpu.skipProgramCounter = true
         break
     case 0x3000:
         //Skip to next instruction if Register X equals last byte
@@ -241,6 +247,9 @@ func DecodeOpcode(cpu Cpu) Cpu {
         lastThree := opCode & 0x0FFF
 
         cpu.programCounter = uint16(cpu.registers[0]) + lastThree
+
+        //Skip program counter since we jumped
+        cpu.skipProgramCounter = true
         break
     case 0xC000:
         //Set register X to bitwise and of last byte and random number
@@ -310,6 +319,9 @@ func DecodeOpcode(cpu Cpu) Cpu {
 
                     //First check if the pixel was already on
                     if cpu.GraphicsDisplay[xCoor][yCoor] == 1 {
+                        if DebugMode {
+                            fmt.Printf("Collision! found at %d, %d\n", xCoor, yCoor)
+                        }
                         collision = true
                     }
 
@@ -327,9 +339,9 @@ func DecodeOpcode(cpu Cpu) Cpu {
 
         //Set our carry flag to true or false depending on collision
         if collision {
-            cpu.registers[15] = 0
-        } else {
             cpu.registers[15] = 1
+        } else {
+            cpu.registers[15] = 0
         }
 
         //Set Should Render to true
@@ -338,27 +350,21 @@ func DecodeOpcode(cpu Cpu) Cpu {
     case 0xE000:
         //Check for key presses at regX
         regX := (opCode & 0x0F00) >> 8
-
-        //Get our Keys
-        keyArray, _ := input.GetKeyArray()
-
-        //Replace the values in the key array
-        for i := 0; i < len(keyArray); i++ {
-            cpu.keyPad[i] = keyArray[i]
-        }
-
         regKey := cpu.registers[regX]
+
+        //Get keys
+        cpu.keyPad, _ = input.GetKeyArray()
 
         switch opCode & 0x000F {
             case 0x000E:
                 //Skips to the next instruction if the Key stored in RegX is pressed
-                if cpu.keyPad[regKey] == 1 {
+                if cpu.keyPad[regKey] == true {
                     cpu.programCounter = cpu.programCounter + 2
                 }
                 break
             case 0x0001:
                 //skips if not pressed
-                if cpu.keyPad[regKey] == 0 {
+                if cpu.keyPad[regKey] == false{
                     cpu.programCounter = cpu.programCounter + 2
                 }
                 break
@@ -376,17 +382,22 @@ func DecodeOpcode(cpu Cpu) Cpu {
                 //Wait for key press, then store in regX
                 waitingForKeys := true
                 var keyIndex uint8
-                for waitingForKeys {
-                    keys, keyPressed := input.GetKeyArray()
+                for times := 0; waitingForKeys; times++ {
+
+                    //Poll for events, while we are stuck in this loop
+                    graphics.PollEvents()
+
+                    var keyPressed bool
+                    cpu.keyPad, keyPressed = input.GetKeyArray()
 
                     if keyPressed {
                         waitingForKeys = false
 
                         //Loop to find which key was pressed
-                        for i := 0; i < len(keys); i++ {
-                            if keys[i] == 1 {
+                        for i := 0; i < len(cpu.keyPad); i++ {
+                            if cpu.keyPad[i] == true {
                                 keyIndex = uint8(i)
-                                i = len(keys)
+                                i = len(cpu.keyPad)
                             }
                         }
                     }

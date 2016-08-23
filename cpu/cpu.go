@@ -12,6 +12,7 @@ package cpu
 //Import io/ioutil for file reading/writing
 //Import video for shared constants
 import (
+    "fmt"
     "io/ioutil"
     "time"
     graphics "chipGo/graphics"
@@ -63,8 +64,10 @@ type Cpu struct {
     //Next we need our Index Register (I) and Program Counter (PC)
     //Index Register contains the value in arithmetic to be applied to a stored value
     //The program counter stores the address of the current instrstuion (or line) of the program currently being exectued by the CPU
+    //Skip program counter is for times when we jump to specific address in the porgram counter. This is for the emulator, and not in the original Chip 8
     indexRegister uint16
     programCounter uint16
+    skipProgramCounter bool
 
     /*
         For Reference: The System Memory Map
@@ -89,13 +92,18 @@ type Cpu struct {
     stackPointer int
 
     //Create our keypad
-    keyPad [16]uint8
+    //Bool for if key is on or off. Index is used for which key
+    keyPad [16]bool
 }
 
+//Debug mode boolean
+var DebugMode bool
+
 //Function to construct a new CPU
-func NewCpu(cpuName string) Cpu {
+func NewCpu(cpuName string, debug bool) Cpu {
 
     cpu := Cpu{CpuName: cpuName, stackPointer: -1}
+    DebugMode = debug
     return cpu
 }
 
@@ -105,22 +113,23 @@ func LoadGame(fileName string, cpu Cpu) Cpu {
     //Read the bytes of the file into memory
     game, err := ioutil.ReadFile(fileName)
     if err != nil {
-        print("Failed loading game...\n")
+        print("Failed loading game...\n\n")
         panic(err)
     } else {
-        print("Game loaded!\n")
+        print("Game loaded!\n\n")
     }
 
     //Set our values to the initial state
     cpu.programCounter = 0x200
+    cpu.skipProgramCounter = false
     cpu.currentOpcode = 0
     cpu.indexRegister = 0
     cpu.stackPointer = 0
 
     //Reset timers (60 cycles per second)
-    cpu.delayTimer = 60
-    cpu.soundTimer = 60
-    cpu.timerSpeed = 1.5
+    cpu.delayTimer = 0
+    cpu.soundTimer = 0
+    cpu.timerSpeed = 100
     //Find our clock speed
     clockSpeed := time.Duration(60.0 * cpu.timerSpeed)
     cpu.Clock = time.Tick(time.Second / clockSpeed)
@@ -146,8 +155,7 @@ func EmulateCycle(cpu Cpu) Cpu {
     cpu.ClearScreen = false
 
     //Get and Decode opcode found in package's opcode.go
-
-    //Get our currently pressed keys
+    //Key decode is done in opcode.go
 
     //Count down our timers
     if cpu.delayTimer > 0 {
@@ -164,8 +172,39 @@ func EmulateCycle(cpu Cpu) Cpu {
     //Decode the Opcode
     cpu = DecodeOpcode(cpu)
 
-    //Finally increase the program counter by two
-    cpu.programCounter = cpu.programCounter + 2
+    //Finally increase the program counter by two, if we did not jump to a specific address
+    if cpu.skipProgramCounter {
+        cpu.skipProgramCounter = false
+    } else {
+        cpu.programCounter = cpu.programCounter + 2
+    }
+
+    //First check for debug mode,
+    //If debug mode is on print the current cpu state
+    if DebugMode {
+        print("\n\nCPU State:\n\n")
+
+        fmt.Println("ShouldRender: ", cpu.ShouldRender)
+        fmt.Println("ClearScreen: ", cpu.ClearScreen)
+        fmt.Printf("currentOpcode: 0x%X\n", cpu.currentOpcode)
+        fmt.Printf("indexRegister: 0x%X\n", cpu.indexRegister)
+        fmt.Printf("programCounter: 0x%X\n", cpu.programCounter)
+
+        //Registers
+        for i := 0; i < len(cpu.registers); i++ {
+            fmt.Printf("Register 0x%X: 0x%X\n", i, cpu.registers[i])
+        }
+
+        //Stack
+        for i := 0; i < len(cpu.stack); i++ {
+            fmt.Printf("Stack 0x%X: 0x%X\n", i, cpu.stack[i])
+        }
+
+        fmt.Println("Stack Pointer: ", cpu.stackPointer)
+
+        //Lastly, space our for results
+        print("\n\n")
+    }
 
     return cpu
 }
@@ -180,4 +219,14 @@ func ClearGraphics(cpu Cpu) Cpu {
     }
 
     return cpu
+}
+
+//Function to return if we should play a sound
+func ShouldPlaySound(cpu Cpu) bool {
+    //Play any sounds
+    //Chip 8 played sound for as long as the sound timer is not zero. but since we have single audio file. Going to play sound as soon as the timer is one
+    if cpu.soundTimer == 1 {
+        return true
+    }
+    return false
 }

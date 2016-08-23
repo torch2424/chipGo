@@ -7,11 +7,12 @@ package input
 */
 
 //This is helper class for handling Input in go
-//http://stackoverflow.com/questions/27198193/how-to-react-to-keypress-events-in-go
+//Using glfw to send key events to the window, which we can then record
+//https://github.com/tedsta/gosfml/blob/master/examples/pong/main.go
 
 //Imports
 import (
-    "azul3d.org/engine/keyboard"
+    "github.com/go-gl/glfw3/v3.1/glfw"
 )
 
 //How we are mapping our keys to chip go keyboard
@@ -27,52 +28,70 @@ import (
 // |A|0|B|F|                |Z|X|C|V|
 // +-+-+-+-+                +-+-+-+-+
 
-//Declare our watchers for the class
-var watcher = keyboard.NewWatcher()
-// Query for the map containing information about all keys
-var status = watcher.States()
-
 //Our keys we will be watching
 //Left side is keypad, right side is keyboard
-var keyZero = []keyboard.State{status[keyboard.X]}
-var keyOne = []keyboard.State{status[keyboard.One]}
-var keyTwo = []keyboard.State{status[keyboard.Two]}
-var keyThree = []keyboard.State{status[keyboard.Three]}
-var keyFour = []keyboard.State{status[keyboard.Q]}
-var keyFive = []keyboard.State{status[keyboard.W]}
-var keySix = []keyboard.State{status[keyboard.E]}
-var keySeven = []keyboard.State{status[keyboard.A]}
-var keyEight = []keyboard.State{status[keyboard.S]}
-var keyNine = []keyboard.State{status[keyboard.D]}
-var keyA = []keyboard.State{status[keyboard.Z]}
-var keyB = []keyboard.State{status[keyboard.C]}
-var keyC = []keyboard.State{status[keyboard.Four]}
-var keyD = []keyboard.State{status[keyboard.R]}
-var keyE = []keyboard.State{status[keyboard.F]}
-var keyF = []keyboard.State{status[keyboard.V]}
+var keyZero = []glfw.Key{glfw.KeyX}
+var keyOne = []glfw.Key{glfw.Key1}
+var keyTwo = []glfw.Key{glfw.Key2}
+var keyThree = []glfw.Key{glfw.Key3}
+var keyFour = []glfw.Key{glfw.KeyQ}
+var keyFive = []glfw.Key{glfw.KeyW}
+var keySix = []glfw.Key{glfw.KeyE}
+var keySeven = []glfw.Key{glfw.KeyA}
+var keyEight = []glfw.Key{glfw.KeyS}
+var keyNine = []glfw.Key{glfw.KeyD}
+var keyA = []glfw.Key{glfw.KeyZ}
+var keyB = []glfw.Key{glfw.KeyC}
+var keyC = []glfw.Key{glfw.Key4}
+var keyD = []glfw.Key{glfw.KeyR}
+var keyE = []glfw.Key{glfw.KeyF}
+var keyF = []glfw.Key{glfw.KeyV}
 
 //Place our keys into an array
-var keyArray = [][]keyboard.State{keyZero, keyOne, keyTwo, keyThree, keyFour, keyFive, keySix, keySeven, keyEight, keyNine, keyA, keyB, keyC, keyD, keyE, keyF}
+var keyArray = [][]glfw.Key{keyZero, keyOne, keyTwo, keyThree, keyFour, keyFive, keySix, keySeven, keyEight, keyNine, keyA, keyB, keyC, keyD, keyE, keyF}
 
-func GetKeyArray() ([15]uint8, bool) {
+//Array of boolean saying if key is pressed (0 - F on keypad)
+var pressedKeys [16]bool
 
-    //Declare our key array
-    var pressedKeys [15]uint8
+func GetKeyArray() ([16]bool, bool) {
 
-    //Declar if we found a key that was pressed
-    var keyPressed bool
-
-    //Loop through our 2d Key array
-    for i := 0; i < len(keyArray); i++ {
-        for j := 0; j < len(keyArray[i]); j++ {
-            if keyArray[i][j] == keyboard.Down {
-                pressedKeys[uint8(i)] = uint8(i)
-                keyPressed = true
-                //Break from the inner loop
-                j = len(keyArray[i])
-            }
+    //Declare if we found a key that was pressed
+    keyPressed := false
+    for i:= 0; i < len(pressedKeys); i++ {
+        if pressedKeys[i] == true {
+            keyPressed = true
+            break
         }
     }
 
+
     return pressedKeys, keyPressed
+}
+
+
+func KeyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	if action == glfw.Press {
+
+        //Loop through our keys to turn on
+        for i := 0; i < len(keyArray); i++ {
+            for j:= 0; j < len(keyArray[i]); j++ {
+                if key == keyArray[i][j] {
+                    pressedKeys[i] = true;
+                    return;
+                }
+            }
+        }
+
+	} else if action == glfw.Release {
+
+        //Loop through our keys to turn off
+        for i := 0; i < len(keyArray); i++ {
+            for j:= 0; j < len(keyArray[i]); j++ {
+                if key == keyArray[i][j] {
+                    pressedKeys[i] = false;
+                    return;
+                }
+            }
+        }
+	}
 }
