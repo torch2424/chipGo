@@ -14,10 +14,10 @@ import (
 )
 
 //Our graphics scale for the window
-const scale int = 10
+var scale int
 
 //Our colors for the display
-var ColorBg = sf.Color{25, 25, 25, 255}
+var ColorBg = sf.Color{20, 20, 20, 255}
 
 var ColorSprite = sf.Color{242, 242, 242, 255}
 
@@ -27,6 +27,9 @@ const Height int = 32
 
 //Debug mode
 var debugMode bool
+
+//Random Color mode
+var ranColorMode bool
 
 type Video struct {
 
@@ -41,7 +44,10 @@ type Video struct {
 }
 
 //Constructor for video
-func NewVideo(debug bool) Video {
+func NewVideo(gameScale int, debug bool, ranColor bool) Video {
+
+	//Set our game scale
+	scale = gameScale
 
 	//Create our video
 	video := Video{Window: GetWindow(), Target: GetTarget()}
@@ -51,6 +57,9 @@ func NewVideo(debug bool) Video {
 
 	//Debug mode
 	debugMode = debug
+
+	//Random color mode
+	ranColorMode = ranColor
 
 	return video
 }
@@ -68,7 +77,7 @@ func GetWindow() *glfw.Window {
 
 	//Initialize graphics library and window
 	glfw.Init()
-	window, err := glfw.CreateWindow(Width * scale, Height * scale, "Chip Go", nil, nil)
+	window, err := glfw.CreateWindow(Width*scale, Height*scale, "Chip Go", nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -112,12 +121,12 @@ func Render(video Video, display [Width][Height]uint8) {
 					print(1)
 				}
 				//Create a sprite at the location
-				video.pixels = append(video.pixels, NewPixel(float32(j * scale), float32(i * scale), float32(scale), float32(scale)))
+				video.pixels = append(video.pixels, NewPixel(float32(j*scale), float32(i*scale), float32(scale), float32(scale)))
 			} else if debugMode {
 				print(" ")
 			}
 
-			if debugMode && j >= Width - 1 {
+			if debugMode && j >= Width-1 {
 				print("\n")
 			}
 		}
@@ -129,7 +138,7 @@ func Render(video Video, display [Width][Height]uint8) {
 
 	//Render all of our pixels
 	for i := 0; i < len(video.pixels); i++ {
-		video.pixels[i].Render(video.Target)
+		video.pixels[i].Render(video.Target, ranColorMode)
 	}
 
 	//Swap the buffers to show the new renders

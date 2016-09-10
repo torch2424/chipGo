@@ -1,160 +1,181 @@
 package main
 
 /*
-    This project will be a CHIP-8 emulator in go, for a basic understanding of laearning how to code an emulator
+   This project will be a CHIP-8 emulator in go, for a basic understanding of laearning how to code an emulator
 
-    Requires Go < 1.6, because graphics library breaks on Go 1.6
+   Requires Go < 1.6, because graphics library breaks on Go 1.6
 
-    http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
+   http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
 */
 
 import (
-    "os"
-    "bufio"
-    "fmt"
-    "flag"
-    "runtime"
-    "path/filepath"
-    cpu "chipGo/cpu"
-    graphics "chipGo/graphics"
-    audio "chipGo/sound"
-    input "chipGo/input"
+	"bufio"
+	cpu "chipGo/cpu"
+	graphics "chipGo/graphics"
+	input "chipGo/input"
+	audio "chipGo/sound"
+	"fmt"
+	"gopkg.in/alecthomas/kingpin.v2"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 )
 
 //Our CPU
 var chipCpu cpu.Cpu
+
 //Our graphics
 var video graphics.Video
+
 //Our Sound
 var sound audio.AudioPlayer
 
-//Settings
-var debugMode *bool
+//Number of opcodes to pass in debug mode
+var skipDebug int
+
+//Command Line Parser (Kingpin) Setup
+var (
+	app       = kingpin.New("ChipGo", "A cjip 8 emulator written in Go")
+	gamePath  = kingpin.Arg("game", "Relative filepath to the game you would like to play. e.g: games/BRIX").Required().String()
+	debugMode = kingpin.Flag("debug", "Debug mode. Step through the emulator per opcode, and displays status of cpu, as well as a graphics mapping.").Short('d').Bool()
+	gameSpeed = kingpin.Flag("speed", "Clock speed of the game. Increase this to make the game run faster, decrease to make the game run slower. Minimum is 1. Which will execute 1 opcode per second").Default("600").Int()
+	gameScale = kingpin.Flag("scale", "Increase in Scale of the game. Original Chip-8 had a 64x32 display. Scale=10 would make the display 640x320").Default("10").Int()
+	partyMode = kingpin.Flag("party", "Party Mode. Who knew Emulation could get so trippy mayne?").Short('p').Bool()
+)
 
 func main() {
 
-    // This is needed to arrange that main() runs on main thread.
-    // See documentation for functions that are only allowed to be called from the main thread.
-    runtime.LockOSThread()
+	// This is needed to arrange that main() runs on main thread.
+	// See documentation for functions that are only allowed to be called from the main thread.
+	runtime.LockOSThread()
 
-    //Print our banner
-    printBanner()
+	//Print our banner
+	printBanner()
 
-    //Get our flags
-    debugMode = flag.Bool("d", false, "debug mode")
-    flag.Parse()
+	//Parse our input
+	kingpin.Parse()
 
-    //Get user input
-    inputArgs := flag.Args()
+	//Check if our input file exists
+	_, err := os.Stat(*gamePath)
+	if err != nil {
+		// no such file or dir
+		fmt.Println("File Not Found: ", *gamePath)
+		print("\n")
+		panic(err)
+	}
 
-    //Check if we have args
-    var gamePath string
-    if len(inputArgs) < 1 {
-        printUsage()
-        os.Exit(0);
-    } else {
-        //Set the fist argument as the file path
-        gamePath = inputArgs[0]
-    }
+	//Inform user we are starting!
+	print("Starting chipGo!\n")
 
-    //Check if our input file exists
-    _, err := os.Stat(gamePath)
-    if err != nil {
-        // no such file or dir
-        fmt.Println("File Not Found: ", gamePath)
-        print("\n")
-        panic(err)
-    }
+	//Test our graphics
+	video := graphics.NewVideo(*gameScale, *debugMode, *partyMode)
 
-    //Inform user we are starting!
-    print("Starting chipGo!\n")
+	//Start our sound
+	sound := audio.NewAudioPlayer(*debugMode)
 
-    //Test our graphics
-    video := graphics.NewVideo(*debugMode)
-
-    //Start our sound
-    sound := audio.NewAudioPlayer(*debugMode)
-
-    //Set our input handler
+	//Set our input handler
 	video.Window.SetKeyCallback(input.KeyCallback)
 
-    //Initialize our CPU. Input is handled by opcode.go in cpu package
-    chipCpu := cpu.NewCpu("chipCpu", *debugMode)
-    print("Cpu initialized, name: " + chipCpu.CpuName + "\n")
+	//Initialize our CPU. Input is handled by opcode.go in cpu package
+	chipCpu := cpu.NewCpu("chipCpu", *gameSpeed, *debugMode)
+	print("Cpu initialized...\n")
 
-    //Load the game
-    loadGame, _ := filepath.Abs(gamePath)
-    chipCpu = cpu.LoadGame(loadGame, chipCpu)
+	//Load the game
+	loadGame, _ := filepath.Abs(*gamePath)
+	chipCpu = cpu.LoadGame(loadGame, chipCpu)
 
+	//Set skip debug checks
+	skipDebug = 0
 
-    //Run the game while the video is open
-    for graphics.IsOpen(video) {
+	//Run the game while the video is open
+	for graphics.IsOpen(video) {
 
-        //Poll for events
-        graphics.PollEvents()
+		//Poll for events
+		graphics.PollEvents()
 
-        //Use the Cpu Clock to see if we should run an instruction
-        //Check for if our cpu clock timer has ticked
-        select {
-        case <- chipCpu.Clock:
+		//Use the Cpu Clock to see if we should run an instruction
+		//Check for if our cpu clock timer has ticked
+		select {
+		case <-chipCpu.Clock.C:
 
-            //Timer ticked
-            //Run the instruction
-            chipCpu = cpu.EmulateCycle(chipCpu)
+			//Timer ticked
+			//Run the instruction
+			chipCpu = cpu.EmulateCycle(chipCpu)
 
-            //Render our display
-            if chipCpu.ShouldRender {
-                graphics.Render(video, chipCpu.GraphicsDisplay)
-            }
-            if chipCpu.ClearScreen {
-                graphics.Clear(video)
-                chipCpu = cpu.ClearGraphics(chipCpu)
-            }
-            chipCpu.ShouldRender = false
-            chipCpu.ClearScreen = false
+			//Render our display
+			//using go function to call in other thread using goRoutines
+			if chipCpu.ShouldRender {
+				graphics.Render(video, chipCpu.GraphicsDisplay)
+			}
+			if chipCpu.ClearScreen {
+				graphics.Clear(video)
+				chipCpu = cpu.ClearGraphics(chipCpu)
+			}
+			chipCpu.ShouldRender = false
+			chipCpu.ClearScreen = false
 
-            //Play any sounds
-            if cpu.ShouldPlaySound(chipCpu) {
-                audio.PlayBlip(sound)
-            }
-            break
-        }
+			//Play any sounds
+			if cpu.ShouldPlaySound(chipCpu) {
+				audio.PlayBlip(sound)
+			}
 
-        //If debug mode wait for user input to continue
-        if *debugMode {
-            reader := bufio.NewReader(os.Stdin)
-            fmt.Print("Debug Mode On. Press enter to continue...\n")
-            text, _ := reader.ReadString('\n')
-            fmt.Print(text);
-            print("\n\n\n")
-        }
-    }
+			//Exit the case
+			break
+		}
+
+		//If debug mode wait for user input to continue
+		if *debugMode {
+			if skipDebug < 1 {
+				reader := bufio.NewReader(os.Stdin)
+				fmt.Print("Debug Mode On. Enter a number of opcodes to execute before pausing. Or, Press enter to continue...\n")
+				text, _ := reader.ReadString('\n')
+
+				//Remove newline from text
+				text = strings.Replace(text, "\n", "", -1)
+
+				//Try to parse input to set debug check
+				parseResult, err := strconv.Atoi(text)
+				if err != nil {
+					print("\n\nDid not find an int, continuing debug stepping...\n\n")
+				} else {
+					skipDebug = int(parseResult)
+				}
+
+				fmt.Print("\n")
+				print("\n\n\n")
+			} else {
+				skipDebug--
+			}
+		}
+	}
 }
 
 //Function to pring program banner
 func printBanner() {
-    print("\n\n")
-    fmt.Println("   ________    _       ______    ")
-    fmt.Println("  / ____/ /_  (_)___  / ____/___ ")
-    fmt.Println(" / /   / __ // / __ |/ / __/ __ /")
-    fmt.Println("/ /___/ / / / / /_/ / /_/ / /_/ /")
-    fmt.Println("|____/_/ /_/_/ .___/|____/|____/ ")
-    fmt.Println("            /_/                  ")
-    print("\n\n")
+	print("\n\n")
+	fmt.Println("   ________    _       ______    ")
+	fmt.Println("  / ____/ /_  (_)___  / ____/___ ")
+	fmt.Println(" / /   / __ // / __ |/ / __/ __ /")
+	fmt.Println("/ /___/ / / / / /_/ / /_/ / /_/ /")
+	fmt.Println("|____/_/ /_/_/ .___/|____/|____/ ")
+	fmt.Println("            /_/                  ")
+	print("\n\n")
 
 }
 
 //Function to print usage of the program
 func printUsage() {
 
-    //Print the usage
-    print("USAGE:\n\n")
-    print("*rom file: the path to the rom you would like to play\n")
-    print("-d: flag to enable debug mode\n")
+	//Print the usage
+	print("USAGE:\n\n")
+	print("*rom file: the path to the rom you would like to play\n")
+	print("-d: flag to enable debug mode\n")
 
-    //Inform asterisk means required
-    print("\n* - fields marked with asterisk are required to play\n")
+	//Inform asterisk means required
+	print("\n* - fields marked with asterisk are required to play\n")
 
-    //Spacing to end on a new line
-    print("\n\n")
+	//Spacing to end on a new line
+	print("\n\n")
 }

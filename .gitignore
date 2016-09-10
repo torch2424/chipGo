@@ -1,24 +1,17 @@
-# Compiled Object files, Static and Dynamic libs (Shared Objects)
-*.o
-*.a
-*.so
+#Allow the place games here to not be ignored
+!games/PLACE_GAMES_HERE
 
-# Folders
-_obj
-_test
+#Ignore the games folder
+games/*
 
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
+#Ignore built chipGo
+chipGo
 
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
+#Ignore build chipGo Directory
+build/*
 
-_testmain.go
+#Allow the gododir file not to be ignored
+!Gododir/main.go
 
-*.exe
-*.test
-*.prof
+#Ignore all other Gododir files
+Gododir/*

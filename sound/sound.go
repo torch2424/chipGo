@@ -4,12 +4,15 @@
 package sound
 
 import (
-	"os"
 	"golang.org/x/mobile/exp/audio"
+	"os"
 )
 
 //Our sound file path
 const soundPath = "sound/Blip.wav"
+
+// Boolean for if audio is broken
+var audioBroken bool
 
 //Debug mode
 var debugMode bool
@@ -38,12 +41,24 @@ func NewAudioPlayer(debug bool) AudioPlayer {
 	//Set our audio player
 	audioPlayer := AudioPlayer{sound: *player}
 
+	//Set that audio is not broken
+	audioBroken = false
+
 	//Set debug mode
 	debugMode = debug
 
 	return audioPlayer
 }
 
+//Function to handle audio errors
+func soundError(err error) {
+	print("\nSound could not be initialized...\n")
+	print(err)
+	print("\nContinuing anyways...\n")
+	audioBroken = true
+}
+
+//Function to play keypress noises
 func PlayBlip(audioPlayer AudioPlayer) {
 	//Check if we are already beeping
 	//Using mobile audio source: https://sourcegraph.com/github.com/golang/mobile/-/def/GoPackage/github.com/golang/mobile/exp/audio/-/Playing
