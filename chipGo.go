@@ -10,10 +10,10 @@ package main
 
 import (
 	"bufio"
-	cpu "chipGo/cpu"
-	graphics "chipGo/graphics"
-	input "chipGo/input"
-	audio "chipGo/sound"
+	cpu "github.com/torch2424/chipGo/cpu"
+	graphics "github.com/torch2424/chipGo/graphics"
+	input "github.com/torch2424/chipGo/input"
+	audio "github.com/torch2424/chipGo/sound"
 	"fmt"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"os"

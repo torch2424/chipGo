@@ -10,8 +10,8 @@ package cpu
 
 //Imports
 import (
-	graphics "chipGo/graphics"
-	input "chipGo/input"
+	graphics "github.com/torch2424/chipGo/graphics"
+	input "github.com/torch2424/chipGo/input"
 	"fmt"
 	"math/rand"
 )

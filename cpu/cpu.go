@@ -12,7 +12,7 @@ package cpu
 //Import io/ioutil for file reading/writing
 //Import video for shared constants
 import (
-	graphics "chipGo/graphics"
+	graphics "github.com/torch2424/chipGo/graphics"
 	"fmt"
 	"io/ioutil"
 	"time"
