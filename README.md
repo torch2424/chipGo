@@ -2,7 +2,7 @@
 
 chipGo is a Chip-8 emulator written in go! Run it with `--help` for all options.
 
-![ChipGo Gameplay gif](https://files.aaronthedev.com/$/u24ps)
+![ChipGo Gameplay gif](https://files.aaronthedev.com/$/reqed)
 
 ## Currently not working
 * Sound (Plays a bunch of times for one sound)
